@@ -1,0 +1,71 @@
+---
+- name: Setup user, SSH keys, install necessary packages, and configure Git
+  hosts: all
+  become: yes
+
+  vars:
+    username: "oxblixxx"
+    ssh_key_file: "/home/{{ username }}/.ssh/id_rsa"
+    git_user_email: "phamust1111@gmail.com"
+    git_user_name: "oxblixxx"
+
+  tasks:
+    # User and SSH setup
+    - name: Ensure the user exists
+      user:
+        name: "{{ username }}"
+        state: present
+        shell: /bin/bash
+
+    - name: Create .ssh directory for the user
+      file:
+        path: "/home/{{ username }}/.ssh"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: 0700
+
+    - name: Generate SSH key pair for the user
+      command: "ssh-keygen -t rsa -b 4096 -f {{ ssh_key_file }} -N ''"
+      args:
+        creates: "{{ ssh_key_file }}"
+      become_user: "{{ username }}"
+
+    - name: Copy the public key to authorized_keys
+      authorized_key:
+        user: "{{ username }}"
+        state: present
+        key: "{{ lookup('file', ssh_key_file + '.pub') }}"
+
+    # System update and package installation
+    - name: Update the apt cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+
+    - name: Install Python pip
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Install Ansible
+      pip:
+        name: ansible
+        executable: pip3
+
+    # Configure Git settings
+    - name: Set global Git user email
+      command: git config --global user.email "{{ git_user_email }}"
+      become_user: "{{ ansible_user }}"
+
+    - name: Set global Git user name
+      command: git config --global user.name "{{ git_user_name }}"
+      become_user: "{{ ansible_user }}"
